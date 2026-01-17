@@ -132,6 +132,49 @@ await tts.clear_cache(namespace="user_123") # Clear specific namespace
 | **Cost** | $ per character | **$0** | **$0** |
 | **Consistency** | Variable | Deterministic | Deterministic |
 
+## 🏃 Running the Example
+
+### Prerequisites
+
+```bash
+# Install with example dependencies
+pip install "pipecat-tts-cache[examples]"
+
+# Optional: Install with Redis support
+pip install "pipecat-tts-cache[examples,redis]"
+
+# Set environment variables
+export DEEPGRAM_API_KEY=your_key
+export CARTESIA_API_KEY=your_key
+export GOOGLE_API_KEY=your_key
+
+# Optional: For Redis backend
+export USE_REDIS_CACHE=true
+export REDIS_URL=redis://localhost:6379/0
+```
+
+### Option 1: Daily Bots (Recommended)
+
+```bash
+# Start the bot server
+python examples/basic_caching.py --host 0.0.0.0 --port 7860
+
+# Connect via Daily Bots or your Daily room
+```
+
+### Option 2: Local WebRTC
+
+```bash
+# Run with local WebRTC transport
+python examples/basic_caching.py -t webrtc --host localhost --port 8765
+```
+
+## ✅ Compatibility
+
+| Pipecat Version | Status |
+|-----------------|--------|
+| v0.0.90+        | ✅ Tested |
+
 ## 🛟 Getting help
 
 ➡️ [Reach out via mail](mailto:omchauhan64408@gmail.com)
