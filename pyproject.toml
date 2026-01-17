@@ -1,0 +1,104 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipecat-tts-cache"
+dynamic = ["version"]
+description = "TTS caching integration for Pipecat to reduce API costs on repeated phrases"
+license = "BSD-2-Clause"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Om Chauhan", email = "omchauhan64408@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["pipecat", "tts", "cache", "voice", "ai", "text-to-speech"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Communications :: Conferencing",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "pipecat-ai>=0.0.90",
+    "loguru~=0.7.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/omChauhanDev/pipecat-tts-cache"
+Documentation = "https://github.com/omChauhanDev/pipecat-tts-cache#readme"
+Source = "https://github.com/omChauhanDev/pipecat-tts-cache"
+Issues = "https://github.com/omChauhanDev/pipecat-tts-cache/issues"
+Changelog = "https://github.com/omChauhanDev/pipecat-tts-cache/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+redis = ["redis>=5.0.0"]
+examples = [
+    "pipecat-ai[silero,cartesia,deepgram,google,daily,webrtc,runner]>=0.0.90",
+]
+all = ["pipecat-tts-cache[redis,examples]"]
+
+[dependency-groups]
+dev = [
+    "build~=1.2.2",
+    "pytest~=8.4.1",
+    "pytest-asyncio~=1.3.0",
+    "ruff>=0.12.11,<1",
+    "pyright>=1.1.404,<1.2",
+    "python-dotenv>=1.0.1,<2.0.0",
+    "pre-commit~=4.5.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"pipecat_tts_cache" = ["py.typed"]
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+fallback_version = "0.0.0-dev"
+
+[tool.pytest.ini_options]
+addopts = "--verbose"
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+exclude = [".git"]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "D",  # Docstring rules
+    "I",  # Import rules
+]
+ignore = [
+    "D105",  # Missing docstring in magic methods (__str__, __repr__, etc.)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Skip docstring checks for non-source code
+"examples/**/*.py" = ["D"]
+"tests/**/*.py" = ["D"]
+"scripts/**/*.py" = ["D"]
+"docs/**/*.py" = ["D"]
+# Skip D104 (missing docstring in public package) for __init__.py files
+"**/__init__.py" = ["D104"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pyright]
+include = ["src"]
+exclude = ["**/__pycache__", "**/node_modules"]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+
+[tool.coverage.run]
+command_line = "--module pytest"
+source = ["src"]
+omit = ["*/tests/*"]
