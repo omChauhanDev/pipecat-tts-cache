@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "pipecat-ai>=0.0.90",
+    "pipecat-ai>=0.0.91",
     "loguru~=0.7.3",
 ]
 
@@ -36,7 +36,7 @@ Changelog = "https://github.com/omChauhanDev/pipecat-tts-cache/blob/main/CHANGEL
 [project.optional-dependencies]
 redis = ["redis>=5.0.0"]
 examples = [
-    "pipecat-ai[silero,cartesia,deepgram,google,daily,webrtc,runner]>=0.0.90",
+    "pipecat-ai[silero,cartesia,deepgram,google,daily,webrtc,runner]>=0.0.98",
 ]
 all = ["pipecat-tts-cache[redis,examples]"]
 

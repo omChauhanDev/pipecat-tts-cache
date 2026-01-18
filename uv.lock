@@ -2423,6 +2423,7 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
+    { name = "pipecat-ai", extra = ["cartesia", "daily", "deepgram", "google", "runner", "silero", "webrtc"] },
     { name = "redis" },
 ]
 examples = [
@@ -2446,9 +2447,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "loguru", specifier = "~=0.7.3" },
-    { name = "pipecat-ai", specifier = ">=0.0.90" },
-    { name = "pipecat-ai", extras = ["cartesia", "daily", "deepgram", "google", "runner", "silero", "webrtc"], marker = "extra == 'examples'", specifier = ">=0.0.90" },
-    { name = "pipecat-tts-cache", extras = ["redis"], marker = "extra == 'all'" },
+    { name = "pipecat-ai", specifier = ">=0.0.91" },
+    { name = "pipecat-ai", extras = ["cartesia", "daily", "deepgram", "google", "runner", "silero", "webrtc"], marker = "extra == 'examples'", specifier = ">=0.0.98" },
+    { name = "pipecat-tts-cache", extras = ["examples", "redis"], marker = "extra == 'all'" },
     { name = "redis", marker = "extra == 'redis'", specifier = ">=5.0.0" },
 ]
 provides-extras = ["redis", "examples", "all"]

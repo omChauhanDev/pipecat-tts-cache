@@ -6,6 +6,7 @@
 
 """TTS caching mixin for reducing API costs on repeated phrases."""
 
+import inspect
 import re
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
@@ -158,7 +159,9 @@ class TTSCacheMixin:
         yield started_frame
 
         if hasattr(self, "start_word_timestamps") and cached.word_timestamps:
-            await self.start_word_timestamps()
+            result = self.start_word_timestamps()
+            if inspect.iscoroutine(result):
+                await result
             word_times: List[Tuple[str, float]] = [
                 (wt.word, wt.timestamp) for wt in cached.word_timestamps
             ]

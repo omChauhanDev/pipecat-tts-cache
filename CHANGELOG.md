@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.0.3] - 2026-01-18
+
+### Changed
+
+- Updated minimum `pipecat-ai` version requirement from `>=0.0.90` to `>=0.0.91` for improved compatibility.
+
+### Fixed
+
+- Added check to only await for coroutine objects, improving async handling.
+
+---
+
 ## [0.0.2] - 2026-01-17
 
 ### Added

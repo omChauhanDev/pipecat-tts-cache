@@ -173,7 +173,7 @@ python examples/basic_caching.py -t webrtc --host localhost --port 8765
 
 | Pipecat Version | Status |
 |-----------------|--------|
-| v0.0.90+        | ✅ Tested |
+| v0.0.91+        | ✅ Tested |
 
 ## 🛟 Getting help
 
