@@ -132,7 +132,7 @@ await tts.clear_cache(namespace="user_123") # Clear specific namespace
 | **Cost** | $ per character | **$0** | **$0** |
 | **Consistency** | Variable | Deterministic | Deterministic |
 
-## 🏃 Running the Example
+## Running the Example
 
 ### Prerequisites
 
@@ -169,7 +169,7 @@ python examples/basic_caching.py --host 0.0.0.0 --port 7860
 python examples/basic_caching.py -t webrtc --host localhost --port 8765
 ```
 
-## ✅ Compatibility
+## Compatibility
 
 | Pipecat Version | Status |
 |-----------------|--------|
@@ -177,9 +177,10 @@ python examples/basic_caching.py -t webrtc --host localhost --port 8765
 
 ## 🛟 Getting help
 
-➡️ [Reach out via mail](mailto:omchauhan64408@gmail.com)
+➡️ [Reach out via mail](https://mail.google.com/mail/?view=cm&fs=1&to=omchauhan64408@gmail.com)
 
-➡️ [Connect on LinkedIn](https://www.linkedin.com/in/om-chauhan-dev/)
+➡️ [Connect on LinkedIn](https://www.linkedin.com/in/omchauhandev/)
+
 
 
 
