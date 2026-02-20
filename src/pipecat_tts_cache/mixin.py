@@ -23,7 +23,7 @@ from pipecat.processors.frame_processor import FrameDirection
 
 from .backends.base import CacheBackend
 from .key_generator import generate_cache_key
-from .models import CachedAudioChunk, CachedTTSResponse, CachedWordTimestamp
+from .models import CachedAudioChunk, CachedTTSResponse, CachedWordTimestamp, CacheStats
 
 _CACHE_ORIGIN_ATTR = "_tts_cache_origin"
 
@@ -66,8 +66,6 @@ class TTSCacheMixin:
         self._cache_namespace = cache_namespace
         self._enable_cache = cache_backend is not None
 
-        self._cache_hits = 0
-        self._cache_misses = 0
         self._batch_cache_tasks: List[BatchCacheTask] = []
         self._batch_audio_buffer: List[CachedAudioChunk] = []
         self._batch_word_timestamps: List[Tuple[str, float]] = []
@@ -118,7 +116,6 @@ class TTSCacheMixin:
         cached_response = await self._safe_cache_get(cache_key)
 
         if cached_response:
-            self._cache_hits += 1
             logger.debug(
                 f"Cache hit: '{text[:50]}...' ({len(cached_response.audio_chunks)} chunks)"
             )
@@ -126,7 +123,6 @@ class TTSCacheMixin:
                 yield frame
             return
 
-        self._cache_misses += 1
         logger.debug(f"Cache miss: '{text[:50]}...'")
 
         task = BatchCacheTask(
@@ -400,28 +396,17 @@ class TTSCacheMixin:
         if hasattr(super(), "_handle_interruption"):
             await super()._handle_interruption(frame, direction)
 
-    async def get_cache_stats(self) -> Dict[str, Any]:
+    async def get_cache_stats(self) -> dict[str, bool | CacheStats]:
         """Get cache statistics for monitoring."""
-        total = self._cache_hits + self._cache_misses
-        hit_rate = self._cache_hits / total if total > 0 else 0.0
+        if not self._enable_cache or not self._cache_backend:
+            return {"enabled": False, "status": "No cache backend configured"}
 
-        stats = {
-            "enabled": self._enable_cache,
-            "hits": self._cache_hits,
-            "misses": self._cache_misses,
-            "hit_rate": hit_rate,
-            "total_requests": total,
-        }
-
-        if self._cache_backend:
-            try:
-                backend_stats = await self._cache_backend.get_stats()
-                stats["backend"] = backend_stats
-            except Exception as e:
-                logger.error(f"Error getting backend stats: {e}")
-                stats["backend"] = {"error": str(e)}
-
-        return stats
+        try:
+            stats = await self._cache_backend.get_stats()
+            return {"enabled": True, "stats": stats}
+        except Exception as e:
+            logger.error(f"Error retrieving stats from backend: {e}")
+            return {"enabled": True, "error": str(e)}
 
     async def clear_cache(self, namespace: Optional[str] = None) -> int:
         """Clear cache entries."""
