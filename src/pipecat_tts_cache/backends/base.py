@@ -9,7 +9,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
-from pipecat_tts_cache.models import CachedTTSResponse
+from pipecat_tts_cache.models import CachedTTSResponse, CacheStats
 
 
 class CacheBackend(ABC):
@@ -39,7 +39,7 @@ class CacheBackend(ABC):
         """Check if a key exists and is not expired."""
 
     @abstractmethod
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> CacheStats:
         """Get cache statistics for monitoring."""
 
     @abstractmethod
