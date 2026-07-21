@@ -597,3 +597,27 @@ async def test_provider_id_skips_an_intermediate_mixin():
     assert one_id is not None and one_id.endswith("_ServiceOne")
     assert two_id is not None and two_id.endswith("_ServiceTwo")
     assert one._generate_cache_key("hi") != two._generate_cache_key("hi")
+
+
+async def test_add_word_timestamps_adapts_to_an_older_base_signature():
+    """Backward-compat: the mixin forwards only the kwargs the wrapped service declares, so
+    word-timestamp replay works on older Pipecat bases that predate
+    includes_inter_frame_spaces / pre_merge_tokens (no TypeError)."""
+    received = []
+
+    class _NarrowBase(_BaseFakeTTS):
+        # Mimics pre-1.3.0: add_word_timestamps without the newer optional kwargs.
+        async def add_word_timestamps(self, word_times, context_id=None):
+            received.append((list(word_times), context_id))
+
+    class _Cached(TTSCacheMixin, _NarrowBase):
+        pass
+
+    tts = _Cached(cache_backend=MemoryCacheBackend())
+
+    # The mixin's own signature accepts these newer kwargs; forwarding must drop the ones the
+    # narrow base cannot accept instead of raising TypeError.
+    await tts.add_word_timestamps(
+        [("hi", 0.0)], context_id="c", includes_inter_frame_spaces=True, pre_merge_tokens=True
+    )
+    assert received == [([("hi", 0.0)], "c")]

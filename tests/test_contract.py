@@ -30,11 +30,13 @@ def test_run_tts_takes_text_and_context_id():
     assert params == ["self", "text", "context_id"]
 
 
-def test_add_word_timestamps_has_every_kwarg_the_mixin_forwards():
-    # The mixin forwards all of these to super(); a rename/removal must fail CI.
+def test_add_word_timestamps_accepts_the_kwargs_the_mixin_depends_on():
+    # The mixin forwards word timestamps with a context_id and adaptively omits newer optional
+    # kwargs (includes_inter_frame_spaces / pre_merge_tokens) on older Pipecat — so only
+    # word_times and context_id are load-bearing and must remain on the base.
     params = inspect.signature(TTSService.add_word_timestamps).parameters
-    for name in ("word_times", "context_id", "includes_inter_frame_spaces", "pre_merge_tokens"):
-        assert name in params, f"TTSService.add_word_timestamps is missing '{name}'"
+    assert "word_times" in params
+    assert "context_id" in params
 
 
 def test_push_frame_signature_is_stable():

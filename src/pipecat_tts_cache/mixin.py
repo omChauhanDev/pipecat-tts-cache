@@ -15,9 +15,10 @@ loop), and cached audio is replayed by yielding it back through the same audio c
 so it obeys the same playback ordering as live audio.
 """
 
+import inspect
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
 from loguru import logger
 from pipecat.frames.frames import (
@@ -92,6 +93,8 @@ class TTSCacheMixin:
         self._cache_misses = 0
         # Per-context capture state, keyed by Pipecat's context_id.
         self._contexts: Dict[str, _ContextCapture] = {}
+        # add_word_timestamps kwargs the base accepts (introspected once).
+        self._forwardable_word_ts_kwargs: Optional[FrozenSet[str]] = None
 
         if self._enable_cache:
             logger.info(
@@ -257,17 +260,30 @@ class TTSCacheMixin:
         includes_inter_frame_spaces: Optional[bool] = None,
         pre_merge_tokens: bool = False,
     ):
-        """Intercept word timestamps for caching, then forward them unchanged."""
+        """Cache word timestamps, then forward them to the base service.
+
+        Only the keyword arguments the base declares are forwarded, so the mixin works across
+        Pipecat versions without changing behavior on current releases.
+        """
         if self._enable_cache and context_id is not None and context_id in self._contexts:
             self._contexts[context_id].word_timestamps.extend(word_times)
 
-        if hasattr(super(), "add_word_timestamps"):
-            await super().add_word_timestamps(
-                word_times,
-                context_id=context_id,
-                includes_inter_frame_spaces=includes_inter_frame_spaces,
-                pre_merge_tokens=pre_merge_tokens,
-            )
+        forward = getattr(super(), "add_word_timestamps", None)
+        if forward is None:
+            return
+
+        if self._forwardable_word_ts_kwargs is None:
+            self._forwardable_word_ts_kwargs = frozenset(inspect.signature(forward).parameters)
+
+        candidate = {
+            "context_id": context_id,
+            "includes_inter_frame_spaces": includes_inter_frame_spaces,
+            "pre_merge_tokens": pre_merge_tokens,
+        }
+        await forward(
+            word_times,
+            **{k: v for k, v in candidate.items() if k in self._forwardable_word_ts_kwargs},
+        )
 
     async def _finalize_context(self, context_id: str) -> None:
         """Store the audio captured for a completed audio context."""

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] - 2026-07-21
+
+### Changed
+
+- Lowered the minimum Pipecat version to `pipecat-ai>=1.0.0` (from `>=1.5.0`).
+  `add_word_timestamps()` now forwards only the keyword arguments the wrapped service declares,
+  so caching works across the full Pipecat 1.x line with no behavior change on current releases.
+- Declared `websockets` as a dependency so installation stays autonomous across the range:
+  `pipecat-ai < 1.4.0` imports it without declaring it as a core dependency.
+
+---
+
 ## [1.0.0] - 2026-07-20
 
 Compatibility release for the current Pipecat line. Pipecat `1.x` reorganized the TTS

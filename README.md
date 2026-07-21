@@ -189,14 +189,15 @@ python examples/basic_caching.py -t webrtc --host localhost --port 8765
 
 ## Compatibility
 
+Requires **Python ≥ 3.11**.
+
 | Pipecat Version | Status |
 |-----------------|--------|
-| v1.5.0+         | ✅ Tested (requires Python ≥ 3.11) |
-| v0.0.91 – v0.0.101 | ⚠️ Use `pipecat-tts-cache` `0.0.3` |
+| v1.0.0 – v1.5.x     | ✅ Fully supported |
+| v0.0.105 – v0.0.108 | ✅ Compatible, below the `>=1.0.0` install floor |
+| ≤ v0.0.104          | ❌ Incompatible — predates Pipecat's audio-context model |
 
-> Pipecat `0.0.102` changed the `TTSService.run_tts()` contract and `1.0` reorganized the TTS/
-> word-timestamp architecture. This release targets the current Pipecat line (`>=1.5.0`); the cache
-> key format also changed, so entries written by older versions are ignored (they re-synthesize once).
+> For Pipecat `0.0.91`–`0.0.101`, use `pipecat-tts-cache` `0.0.3`.
 
 ## 🛟 Getting help
 
