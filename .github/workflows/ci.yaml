@@ -9,6 +9,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -16,8 +19,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: uv sync --all-extras --dev
+      - name: Lint (ruff)
+        run: uv run ruff check src tests examples
+      - name: Format check (ruff)
+        run: uv run ruff format --check src tests examples
       - name: Run tests
         run: uv run pytest

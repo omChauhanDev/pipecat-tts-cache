@@ -10,9 +10,9 @@ from pipecat_tts_cache.backends.base import CacheBackend
 from pipecat_tts_cache.backends.memory import MemoryCacheBackend
 
 try:
-    from pipecat_tts_cache.backends.redis import RedisCacheBackend
-
-    REDIS_AVAILABLE = True
+    # REDIS_AVAILABLE is sourced from the redis module (which reflects whether redis-py
+    # is importable), not set here — the module imports cleanly even without redis-py.
+    from pipecat_tts_cache.backends.redis import REDIS_AVAILABLE, RedisCacheBackend
 except ImportError:
     RedisCacheBackend = None  # type: ignore
     REDIS_AVAILABLE = False

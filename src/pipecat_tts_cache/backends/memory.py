@@ -27,7 +27,7 @@ class MemoryCacheBackend(CacheBackend):
             max_size: Maximum number of cache entries to store.
         """
         self._cache: OrderedDict[str, Tuple[CachedTTSResponse, float]] = OrderedDict()
-        self._max_size = max_size
+        self._max_size = max(1, max_size)
         self._lock = asyncio.Lock()
         self._hits = 0
         self._misses = 0
@@ -56,7 +56,8 @@ class MemoryCacheBackend(CacheBackend):
         """Store a TTS response in cache. Returns True on success."""
         async with self._lock:
             try:
-                expiry = time.time() + ttl if ttl else 0.0
+                # ttl <= 0 (and None) means "no expiry", matching the Redis backend.
+                expiry = time.time() + ttl if ttl and ttl > 0 else 0.0
 
                 if len(self._cache) >= self._max_size and key not in self._cache:
                     self._cache.popitem(last=False)
@@ -86,7 +87,7 @@ class MemoryCacheBackend(CacheBackend):
                 self._cache.clear()
                 return count
 
-            to_delete = [k for k in self._cache.keys() if k.startswith(namespace)]
+            to_delete = [k for k in self._cache.keys() if k.startswith(f"{namespace}:")]
             for key in to_delete:
                 del self._cache[key]
             return len(to_delete)

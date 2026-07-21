@@ -23,26 +23,26 @@ This example demonstrates the TTS caching feature. To test:
 To switch TTS providers, create a cached version like:
     class CachedMyTTS(TTSCacheMixin, MyTTSService): pass
 
-Supported TTS types:
-- WebSocket with word timestamps (Eg: CartesiaTTSService): Full batch caching
-- WebSocket without timestamps (Eg: DeepgramTTSService): Single-sentence caching only
-- HTTP with timestamps (Eg: ElevenLabsHttpTTSService): Full caching
-- HTTP without timestamps (Eg: GoogleHttpTTSService): Full caching
+Works with any Pipecat TTS service (HTTP or WebSocket). Services that emit word
+timestamps (e.g. Cartesia, Rime, ElevenLabs, Hume) get word-accurate replay on cache
+hits; the rest (e.g. Google, OpenAI, Deepgram, Sarvam) get full audio-only caching.
+Requires pipecat-ai >= 1.5.0.
 """
 
 import os
 
 from dotenv import load_dotenv
 from loguru import logger
-
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import LLMRunFrame
 from pipecat.pipeline.pipeline import Pipeline
-from pipecat.pipeline.runner import PipelineRunner
-from pipecat.pipeline.task import PipelineParams, PipelineTask
+from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.aggregators.llm_context import LLMContext
-from pipecat.processors.aggregators.llm_response_universal import LLMContextAggregatorPair
+from pipecat.processors.aggregators.llm_response_universal import (
+    LLMContextAggregatorPair,
+    LLMUserAggregatorParams,
+)
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
 from pipecat.services.cartesia.tts import CartesiaTTSService
@@ -50,6 +50,8 @@ from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.google.llm import GoogleLLMService
 from pipecat.transports.base_transport import BaseTransport, TransportParams
 from pipecat.transports.daily.transport import DailyParams
+from pipecat.workers.runner import WorkerRunner
+
 from pipecat_tts_cache import MemoryCacheBackend, TTSCacheMixin
 
 load_dotenv(override=True)
@@ -107,12 +109,10 @@ transport_params = {
     "daily": lambda: DailyParams(
         audio_in_enabled=True,
         audio_out_enabled=True,
-        vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
     ),
     "webrtc": lambda: TransportParams(
         audio_in_enabled=True,
         audio_out_enabled=True,
-        vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
     ),
 }
 
@@ -128,7 +128,9 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
     tts = CachedCartesiaTTSService(
         api_key=cartesia_api_key,
-        voice_id="71a7ad14-091c-4e8e-a314-022ece01c121",
+        settings=CachedCartesiaTTSService.Settings(
+            voice="71a7ad14-091c-4e8e-a314-022ece01c121",
+        ),
         cache_backend=cache_backend,
         cache_ttl=3600,
     )
@@ -156,7 +158,13 @@ the same intro message above, word for word.
     ]
 
     context = LLMContext(messages)
-    context_aggregator = LLMContextAggregatorPair(context)
+    # VAD is configured on the user aggregator (Pipecat 1.x moved it off TransportParams).
+    context_aggregator = LLMContextAggregatorPair(
+        context,
+        user_params=LLMUserAggregatorParams(
+            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2))
+        ),
+    )
 
     pipeline = Pipeline(
         [
@@ -170,7 +178,7 @@ the same intro message above, word for word.
         ]
     )
 
-    task = PipelineTask(
+    worker = PipelineWorker(
         pipeline,
         params=PipelineParams(
             enable_metrics=True,
@@ -183,7 +191,7 @@ the same intro message above, word for word.
     async def on_client_connected(transport, client):
         logger.info("Client connected - starting TTS cache demo")
         messages.append({"role": "user", "content": "Please introduce yourself."})
-        await task.queue_frames([LLMRunFrame()])
+        await worker.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
@@ -195,11 +203,13 @@ the same intro message above, word for word.
         for key, value in stats.items():
             logger.info(f"  {key}: {value}")
 
+        # We own the backend we created, so we close it here.
         await cache_backend.close()
-        await task.cancel()
+        await worker.cancel()
 
-    runner = PipelineRunner(handle_sigint=runner_args.handle_sigint)
-    await runner.run(task)
+    runner = WorkerRunner(handle_sigint=runner_args.handle_sigint)
+    await runner.add_workers(worker)
+    await runner.run()
 
 
 async def bot(runner_args: RunnerArguments):

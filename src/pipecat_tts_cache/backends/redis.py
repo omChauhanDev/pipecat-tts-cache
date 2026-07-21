@@ -46,7 +46,7 @@ class RedisCacheBackend(CacheBackend):
         if not REDIS_AVAILABLE:
             raise ImportError(
                 "RedisCacheBackend requires redis-py. "
-                "Install with: pip install 'redis[asyncio]>=5.0.0'"
+                "Install with: pip install 'redis[asyncio]>=5.0.1'"
             )
 
         self._redis_url = redis_url
@@ -89,7 +89,8 @@ class RedisCacheBackend(CacheBackend):
 
             response = pickle.loads(data)
             if not isinstance(response, CachedTTSResponse):
-                logger.error(f"Invalid cached data type: {type(response)}")
+                logger.error(f"Invalid cached data type: {type(response)}; deleting entry")
+                await self._delete_quietly(self._make_key(key))
                 return None
             return response
 
@@ -97,14 +98,18 @@ class RedisCacheBackend(CacheBackend):
             logger.error(f"Redis connection error on get: {e}")
             return None
 
-        except (pickle.UnpicklingError, Exception) as e:
+        except Exception as e:
             logger.error(f"Redis get error: {e}")
-            try:
-                client = await self._get_client()
-                await client.delete(self._make_key(key))
-            except Exception:
-                pass
+            await self._delete_quietly(self._make_key(key))
             return None
+
+    async def _delete_quietly(self, prefixed_key: str) -> None:
+        """Best-effort delete of an already-prefixed key, to self-heal a bad entry."""
+        try:
+            client = await self._get_client()
+            await client.delete(prefixed_key)
+        except Exception:
+            pass
 
     async def set(self, key: str, response: CachedTTSResponse, ttl: Optional[int] = None) -> bool:
         """Store a TTS response in cache. Returns True on success."""
@@ -117,10 +122,12 @@ class RedisCacheBackend(CacheBackend):
                 logger.warning(f"Large cache entry: {data_size_mb:.1f}MB for key {key[:16]}...")
 
             prefixed_key = self._make_key(key)
-            if ttl and ttl > 0:
-                await client.setex(prefixed_key, ttl, data)
-            else:
-                await client.set(prefixed_key, data)
+            # Use SET with EX (setex is deprecated in redis-py). ex=None means no expiry.
+            # redis rejects a float or a zero expiry, so clamp any positive TTL to an
+            # integer of at least 1s: a float (e.g. timedelta.total_seconds()) or a
+            # sub-second TTL must not silently fail the write.
+            expire = max(1, int(ttl)) if ttl and ttl > 0 else None
+            await client.set(prefixed_key, data, ex=expire)
             return True
 
         except pickle.PicklingError as e:
@@ -153,7 +160,7 @@ class RedisCacheBackend(CacheBackend):
             if namespace is None:
                 search_pattern = f"{self._key_prefix}*"
             else:
-                search_pattern = f"{self._key_prefix}{namespace}*"
+                search_pattern = f"{self._key_prefix}{namespace}:*"
 
             count = 0
             async for key in client.scan_iter(match=search_pattern, count=100):

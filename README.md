@@ -39,14 +39,22 @@ pip install "pipecat-tts-cache[redis]"
 
 ## 🧩 Service Compatibility
 
-The caching layer intelligently handles different TTS architectures to ensure smooth playback regardless of the provider.
+The mixin works with **any** Pipecat `TTSService` — HTTP or WebSocket. It captures audio as it
+flows through the pipeline (keyed by Pipecat's per-request audio context) and replays cached audio
+back through that same audio context, so playback ordering is preserved even when cache hits and
+live synthesis are mixed in a single turn.
 
-| **Service Type**            | **Caching Strategy**                                   | **Supported Providers (Examples)**        |
-|----------------------------|--------------------------------------------------------|-------------------------------------------|
-| **AudioContextWordTTS**    | **Batch Caching**  <br> Splits audio at word boundaries and caches individual sentences. | Cartesia, Rime |
-| **WordTTSService**         | **Full Caching w/ Timestamps**  <br> Caches the full response and preserves alignment data. | ElevenLabs, Hume |
-| **TTSService**             | **Standard Caching**  <br> Caches the full audio response (no alignment data). | Google, OpenAI, Deepgram (HTTP) |
-| **InterruptibleTTS**       | **Sentence Caching**  <br> Caches single-sentence responses only. | Sarvam, Deepgram (WebSocket) |
+How much detail is preserved on a cache hit depends on what the underlying service produces:
+
+| **What the service emits** | **What is cached & replayed** | **Providers (examples)** |
+|----------------------------|-------------------------------|--------------------------|
+| **Word timestamps** | Audio **plus** word-level timestamps → `TTSTextFrame`s are regenerated on replay, so transcripts and word alignment stay correct (even on interruption). | Cartesia, Rime, ElevenLabs, Hume |
+| **Audio only** | The full audio response is cached and replayed; transcript text is preserved via the framework's own text frames. | Google, OpenAI, Deepgram, Sarvam |
+
+> Since Pipecat `1.0`, word-timestamp support lives on the base `TTSService`, so provider class
+> names are no longer meaningful for caching — the mixin adapts to whatever each service emits at
+> runtime.
+
 ## 🛠️ Usage
 
 ### 1. Basic In-Memory Cache (Development)
@@ -63,7 +71,7 @@ class CachedGoogleTTS(TTSCacheMixin, GoogleHttpTTSService):
 
 # 2. Initialize with memory backend
 tts = CachedGoogleTTS(
-    voice_id="en-US-Chirp3-HD-Charon",
+    settings=CachedGoogleTTS.Settings(voice="en-US-Chirp3-HD-Charon"),
     cache_backend=MemoryCacheBackend(max_size=1000),
     cache_ttl=86400,  # Cache for 24 hours
 )
@@ -78,7 +86,7 @@ For production deployments, use `RedisCacheBackend`. This allows the cache to pe
 from pipecat_tts_cache.backends import RedisCacheBackend
 
 tts = CachedGoogleTTS(
-    voice_id="en-US-Chirp3-HD-Charon",
+    settings=CachedGoogleTTS.Settings(voice="en-US-Chirp3-HD-Charon"),
     cache_backend=RedisCacheBackend(
         redis_url="redis://localhost:6379/0",
         key_prefix="pipecat:tts:",
@@ -87,6 +95,16 @@ tts = CachedGoogleTTS(
 )
 
 ```
+
+> ⚠️ **Security — Redis trust boundary.** The Redis backend serializes cached audio with
+> `pickle`, so it must be treated as trusted: use a **single-tenant, authenticated,
+> network-isolated** Redis instance. Never point it at a shared/untrusted Redis — anyone who
+> can write the keyspace could achieve code execution when an entry is read. See `SECURITY.md`.
+>
+> **Backend lifecycle.** You own the backend you pass in — reuse a single instance across
+> sessions (recommended for Redis, so its connection pool is shared) and call
+> `await backend.close()` when your app shuts down. The package never closes an injected
+> backend, so a shared one is safe.
 
 ## 🧠 How It Works
 
@@ -173,7 +191,12 @@ python examples/basic_caching.py -t webrtc --host localhost --port 8765
 
 | Pipecat Version | Status |
 |-----------------|--------|
-| v0.0.91+        | ✅ Tested |
+| v1.5.0+         | ✅ Tested (requires Python ≥ 3.11) |
+| v0.0.91 – v0.0.101 | ⚠️ Use `pipecat-tts-cache` `0.0.3` |
+
+> Pipecat `0.0.102` changed the `TTSService.run_tts()` contract and `1.0` reorganized the TTS/
+> word-timestamp architecture. This release targets the current Pipecat line (`>=1.5.0`); the cache
+> key format also changed, so entries written by older versions are ignored (they re-synthesize once).
 
 ## 🛟 Getting help
 
