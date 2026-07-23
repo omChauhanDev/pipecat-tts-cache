@@ -93,3 +93,55 @@ def test_missing_chunks_key_is_rejected():
     raw = msgpack.packb({"v": 1, "sample_rate": 16000, "num_channels": 1})
     with pytest.raises(ValueError, match="missing 'chunks'"):
         CachedTTSResponse.from_msgpack(raw)
+
+
+def _valid_payload(**overrides):
+    payload = {
+        "v": 1,
+        "chunks": [{"audio": b"\x00\x01", "sample_rate": 16000, "num_channels": 1, "pts": None}],
+        "sample_rate": 16000,
+        "num_channels": 1,
+        "word_timestamps": None,
+        "total_duration_s": 0.0,
+        "created_at": 0.0,
+        "metadata": {},
+    }
+    payload.update(overrides)
+    return payload
+
+
+@pytest.mark.parametrize(
+    "overrides, match",
+    [
+        ({"sample_rate": "bad"}, "sample_rate"),
+        ({"num_channels": "bad"}, "num_channels"),
+        ({"sample_rate": True}, "sample_rate"),  # bool is not a valid int here
+        ({"metadata": []}, "metadata"),
+        ({"word_timestamps": 5}, "word_timestamps"),
+        ({"total_duration_s": "long"}, "total_duration_s"),
+        ({"chunks": [{"sample_rate": 16000, "num_channels": 1}]}, "audio"),  # missing audio
+        ({"chunks": ["not-a-dict"]}, "chunk"),
+        (
+            {"chunks": [{"audio": b"\x00", "sample_rate": "bad", "num_channels": 1}]},
+            "sample_rate",
+        ),
+        ({"word_timestamps": [{"timestamp": 0.0}]}, "word"),  # missing word
+        ({"word_timestamps": [{"word": "hi", "timestamp": "soon"}]}, "timestamp"),
+    ],
+)
+def test_malformed_field_types_are_rejected(overrides, match):
+    """A decodable payload with a wrong-typed field raises rather than round-tripping."""
+    import msgpack
+
+    raw = msgpack.packb(_valid_payload(**overrides))
+    with pytest.raises(ValueError, match=match):
+        CachedTTSResponse.from_msgpack(raw)
+
+
+def test_a_valid_payload_built_by_hand_still_decodes():
+    """Guards the parametrized cases above: the un-overridden payload is genuinely valid."""
+    import msgpack
+
+    restored = CachedTTSResponse.from_msgpack(msgpack.packb(_valid_payload()))
+    assert restored.sample_rate == 16000
+    assert restored.audio_chunks[0].audio == b"\x00\x01"

@@ -104,11 +104,13 @@ async def test_word_timestamps_and_rich_fields_round_trip(backend):
     assert fetched.metadata == {"text": "hello world"}
 
 
-async def test_corrupt_payload_is_treated_as_a_miss(backend):
-    """A value that is not a valid msgpack payload must not be returned to the caller."""
+async def test_corrupt_payload_is_treated_as_a_miss_and_self_heals(backend):
+    """A value that is not a valid msgpack payload is a miss and is deleted on read."""
     client = await backend._get_client()
     await client.set("test:bad", b"\xff\xff not msgpack \x00")
     assert await backend.get("bad") is None
+    # Self-heal: the corrupt entry must be gone so it isn't re-read every lookup.
+    assert await client.get("test:bad") is None
 
 
 async def test_get_stats_is_fail_safe(backend):
