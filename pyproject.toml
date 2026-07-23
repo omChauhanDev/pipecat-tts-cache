@@ -38,7 +38,7 @@ Issues = "https://github.com/omChauhanDev/pipecat-tts-cache/issues"
 Changelog = "https://github.com/omChauhanDev/pipecat-tts-cache/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-redis = ["redis>=5.0.1"]
+redis = ["redis>=5.0.1", "msgpack>=1.0.0"]
 examples = [
     "pipecat-ai[silero,cartesia,deepgram,google,daily,webrtc,runner]>=1.5.0,<2.0.0",
 ]

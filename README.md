@@ -96,10 +96,10 @@ tts = CachedGoogleTTS(
 
 ```
 
-> ⚠️ **Security — Redis trust boundary.** The Redis backend serializes cached audio with
-> `pickle`, so it must be treated as trusted: use a **single-tenant, authenticated,
-> network-isolated** Redis instance. Never point it at a shared/untrusted Redis — anyone who
-> can write the keyspace could achieve code execution when an entry is read. See `SECURITY.md`.
+> **Serialization.** The Redis backend serializes cached audio with
+> [msgpack](https://msgpack.org/) — entries are plain data, so reading one back never
+> executes code. Authenticate and network-isolate Redis as usual, but a poisoned entry
+> cannot achieve code execution. See `SECURITY.md`.
 >
 > **Backend lifecycle.** You own the backend you pass in — reuse a single instance across
 > sessions (recommended for Redis, so its connection pool is shared) and call
