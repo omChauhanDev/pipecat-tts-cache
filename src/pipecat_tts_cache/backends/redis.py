@@ -6,7 +6,6 @@
 
 """Redis-based distributed cache backend for TTS caching."""
 
-import pickle
 from typing import Any, Dict, Optional
 
 from loguru import logger
@@ -87,12 +86,14 @@ class RedisCacheBackend(CacheBackend):
             if data is None:
                 return None
 
-            response = pickle.loads(data)
-            if not isinstance(response, CachedTTSResponse):
-                logger.error(f"Invalid cached data type: {type(response)}; deleting entry")
+            try:
+                return CachedTTSResponse.from_msgpack(data)
+            except Exception as e:
+                # Malformed / wrong-schema entry (e.g. written by an older version).
+                # Self-heal by dropping it so it is re-synthesized once.
+                logger.error(f"Invalid cached entry; deleting: {e}")
                 await self._delete_quietly(self._make_key(key))
                 return None
-            return response
 
         except aioredis.ConnectionError as e:
             logger.error(f"Redis connection error on get: {e}")
@@ -115,7 +116,7 @@ class RedisCacheBackend(CacheBackend):
         """Store a TTS response in cache. Returns True on success."""
         try:
             client = await self._get_client()
-            data = pickle.dumps(response, protocol=pickle.HIGHEST_PROTOCOL)
+            data = response.to_msgpack()
 
             data_size_mb = len(data) / (1024 * 1024)
             if data_size_mb > 10:
@@ -129,10 +130,6 @@ class RedisCacheBackend(CacheBackend):
             expire = max(1, int(ttl)) if ttl and ttl > 0 else None
             await client.set(prefixed_key, data, ex=expire)
             return True
-
-        except pickle.PicklingError as e:
-            logger.error(f"Redis pickle error: {e}")
-            return False
 
         except aioredis.ConnectionError as e:
             logger.error(f"Redis connection error on set: {e}")

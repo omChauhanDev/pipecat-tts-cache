@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- **`RedisCacheBackend` now serializes cache entries with `msgpack` instead of `pickle`.**
+  Entries are written as plain data and decoded into known dataclasses via
+  `CachedTTSResponse.to_msgpack()` / `from_msgpack()`, so reading a cache entry never
+  executes code. The payload carries a schema version; an entry that is malformed or written
+  by an incompatible version fails to decode and is treated as a cache miss (and deleted to
+  self-heal). Existing `pickle` entries from older versions are ignored and re-synthesized
+  once — no manual cache migration needed.
+- The `redis` extra now also installs `msgpack` (`pip install 'pipecat-tts-cache[redis]'`).
+
+### Security
+
+- Removes the `pickle`-deserialization trust boundary on the Redis backend
+  ([CWE-502](https://cwe.mitre.org/data/definitions/502.html)): a poisoned cache entry can no
+  longer achieve code execution when read back, so a shared or multi-tenant Redis is no
+  longer a code-execution vector through the cache keyspace. See
+  [SECURITY.md](SECURITY.md).
+
+---
+
 ## [1.0.1] - 2026-07-21
 
 ### Changed

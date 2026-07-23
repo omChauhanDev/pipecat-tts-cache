@@ -7,11 +7,9 @@
 """RedisCacheBackend: the distributed store.
 
 Tested against an in-memory ``fakeredis`` server so the backend's real code path
-(connection, pickle serialization, TTL, scan-based clear, error fallbacks) runs
+(connection, msgpack serialization, TTL, scan-based clear, error fallbacks) runs
 unmodified — no mocking of our own logic. Skipped if ``fakeredis`` is unavailable.
 """
-
-import pickle
 
 import pytest
 
@@ -19,7 +17,11 @@ fakeredis = pytest.importorskip("fakeredis")
 import fakeredis.aioredis  # noqa: E402
 
 import pipecat_tts_cache.backends.redis as redis_backend  # noqa: E402
-from pipecat_tts_cache.models import CachedAudioChunk, CachedTTSResponse  # noqa: E402
+from pipecat_tts_cache.models import (  # noqa: E402
+    CachedAudioChunk,
+    CachedTTSResponse,
+    CachedWordTimestamp,
+)
 
 
 def _response(byte_len: int = 16) -> CachedTTSResponse:
@@ -76,10 +78,36 @@ async def test_clear_removes_all_prefixed_keys(backend):
     assert await backend.get("b") is None
 
 
+async def test_word_timestamps_and_rich_fields_round_trip(backend):
+    """Word timestamps, per-chunk pts, and metadata survive the msgpack round-trip."""
+    response = CachedTTSResponse(
+        audio_chunks=[
+            CachedAudioChunk(b"\x00\x01" * 8, 16000, 1, pts=0),
+            CachedAudioChunk(b"\x02\x03" * 8, 16000, 1, pts=1000),
+        ],
+        sample_rate=16000,
+        num_channels=1,
+        word_timestamps=[
+            CachedWordTimestamp(word="hello", timestamp=0.0),
+            CachedWordTimestamp(word="world", timestamp=0.25),
+        ],
+        total_duration_s=0.5,
+        metadata={"text": "hello world"},
+    )
+    assert await backend.set("k", response, ttl=100) is True
+
+    fetched = await backend.get("k")
+    assert fetched is not None
+    assert [c.pts for c in fetched.audio_chunks] == [0, 1000]
+    assert fetched.word_timestamps == response.word_timestamps
+    assert fetched.total_duration_s == 0.5
+    assert fetched.metadata == {"text": "hello world"}
+
+
 async def test_corrupt_payload_is_treated_as_a_miss(backend):
-    """A value that is not a CachedTTSResponse must not be returned to the caller."""
+    """A value that is not a valid msgpack payload must not be returned to the caller."""
     client = await backend._get_client()
-    await client.set("test:bad", pickle.dumps({"not": "a response"}))
+    await client.set("test:bad", b"\xff\xff not msgpack \x00")
     assert await backend.get("bad") is None
 
 

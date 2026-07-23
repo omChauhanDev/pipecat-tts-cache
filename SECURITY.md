@@ -1,18 +1,22 @@
 # Security Policy
 
-## Redis backend trust boundary
+## Redis backend serialization
 
-`RedisCacheBackend` serializes cached responses with Python `pickle` and calls
-`pickle.loads` on data read back from Redis. Deserializing untrusted pickle data can lead
-to arbitrary code execution (CWE-502).
+`RedisCacheBackend` serializes cached responses with [msgpack](https://msgpack.org/): a
+cache entry is written as plain data (audio bytes, ints, floats, strings) and read back with
+`CachedTTSResponse.from_msgpack`, which constructs only known dataclasses from those fields.
+Reading an entry never instantiates arbitrary types or executes code, so a poisoned entry
+cannot achieve remote code execution — the [CWE-502](https://cwe.mitre.org/data/definitions/502.html)
+deserialization class of bug does not apply. An entry that is malformed or written by an
+incompatible schema version fails to decode and is treated as a cache miss (and deleted to
+self-heal).
 
-**Therefore the Redis instance backing the cache must be trusted:** single-tenant,
-authenticated (`requirepass`/ACLs), and network-isolated (not exposed to other tenants or
-applications that could write to the keyspace). Do not point the Redis backend at a shared
-or publicly reachable Redis.
+Standard operational hygiene still applies — authenticate Redis (`requirepass`/ACLs) and
+keep it network-isolated — but a shared or multi-tenant Redis no longer exposes this package
+to code execution through the cache keyspace.
 
-The in-memory `MemoryCacheBackend` is not affected (it stores live Python objects and does
-not deserialize external bytes).
+The in-memory `MemoryCacheBackend` stores live Python objects and does not deserialize
+external bytes at all.
 
 ## Reporting a Vulnerability
 
